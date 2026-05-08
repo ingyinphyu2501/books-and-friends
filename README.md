@@ -82,10 +82,4 @@ npm install
 npm run start:offline  # Use offline mode to skip network validation issues
 ```
 
----
 
-## 🔮 Roadmap (Next Version)
-- **Book Metadata API**: Auto-fetch covers and chapters via Google Books API.
-- **Spoiler Protection**: Blur posts associated with future chapters.
-- **Offline Sync**: Native mobile caching for offline progress tracking.
-- **Push Notifications**: Real-time alerts for discussion replies.
