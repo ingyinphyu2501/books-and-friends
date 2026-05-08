@@ -11,6 +11,7 @@ type SessionRow = {
   created_at: string
   chapter_count: number
   creator_name: string
+  cover_url: string | null
 }
 
 type ListMode = 'all' | 'mine'
@@ -64,19 +65,20 @@ export function SessionsListPage() {
     try {
       const to = PAGE_SIZE - 1
 
-      const { data: sessions, error: qErr } = await supabase
+      const { data, error: qErr } = await supabase
         .from('reading_sessions')
-        .select('id, title, author, created_at, profiles(display_name)')
+        .select('id, title, author, created_at, cover_url, profiles(display_name)')
         .order('created_at', { ascending: false })
         .range(0, to)
 
       if (qErr) throw qErr
+      const sessions = data as any[]
 
       const sessionIds = (sessions ?? []).map(s => s.id)
       const chapterMap = await fetchChapterCounts(sessionIds)
 
       const batch: SessionRow[] = (sessions ?? []).map(s => {
-        const p = s.profiles as unknown as { display_name: string } | null
+        const p = s.profiles as any
         return {
           id: s.id,
           title: s.title,
@@ -84,6 +86,7 @@ export function SessionsListPage() {
           created_at: s.created_at,
           chapter_count: chapterMap[s.id] ?? 0,
           creator_name: p?.display_name ?? 'Reader',
+          cover_url: s.cover_url,
         }
       })
 
@@ -131,18 +134,19 @@ export function SessionsListPage() {
         return
       }
 
-      const { data: sessions, error: qErr } = await supabase
+      const { data, error: qErr } = await supabase
         .from('reading_sessions')
-        .select('id, title, author, created_at, profiles(display_name)')
+        .select('id, title, author, created_at, cover_url, profiles(display_name)')
         .in('id', idList)
         .order('created_at', { ascending: false })
 
       if (qErr) throw qErr
+      const sessions = data as any[]
 
       const chapterMap = await fetchChapterCounts(idList)
 
       const full: SessionRow[] = (sessions ?? []).map(s => {
-        const p = s.profiles as unknown as { display_name: string } | null
+        const p = s.profiles as any
         return {
           id: s.id,
           title: s.title,
@@ -150,6 +154,7 @@ export function SessionsListPage() {
           created_at: s.created_at,
           chapter_count: chapterMap[s.id] ?? 0,
           creator_name: p?.display_name ?? 'Reader',
+          cover_url: s.cover_url,
         }
       })
 
@@ -192,19 +197,20 @@ export function SessionsListPage() {
       const from = allOffset
       const to = from + PAGE_SIZE - 1
 
-      const { data: sessions, error: qErr } = await supabase
+      const { data, error: qErr } = await supabase
         .from('reading_sessions')
-        .select('id, title, author, created_at, profiles(display_name)')
+        .select('id, title, author, created_at, cover_url, profiles(display_name)')
         .order('created_at', { ascending: false })
         .range(from, to)
 
       if (qErr) throw qErr
+      const sessions = data as any[]
 
       const sessionIds = (sessions ?? []).map(s => s.id)
       const chapterMap = await fetchChapterCounts(sessionIds)
 
       const batch: SessionRow[] = (sessions ?? []).map(s => {
-        const p = s.profiles as unknown as { display_name: string } | null
+        const p = s.profiles as any
         return {
           id: s.id,
           title: s.title,
@@ -212,6 +218,7 @@ export function SessionsListPage() {
           created_at: s.created_at,
           chapter_count: chapterMap[s.id] ?? 0,
           creator_name: p?.display_name ?? 'Reader',
+          cover_url: s.cover_url,
         }
       })
 
@@ -305,28 +312,39 @@ export function SessionsListPage() {
         {rows.map(s => (
           <li key={s.id}>
             <Link to={`/sessions/${s.id}`} className="session-card card">
-              <div className="session-card-top">
-                <h2 className="session-title">{s.title}</h2>
-                <span className="pill">Public</span>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {s.cover_url && (
+                  <img
+                    src={s.cover_url}
+                    alt=""
+                    style={{ width: 60, height: 90, objectFit: 'cover', borderRadius: 4 }}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  <div className="session-card-top">
+                    <h2 className="session-title">{s.title}</h2>
+                    <span className="pill">Public</span>
+                  </div>
+
+                  <p className="session-author">{s.author}</p>
+
+                  <p className="muted small">
+                    {t('sessions.chapters_count', { count: s.chapter_count })}
+                  </p>
+
+                  <p className="muted small">
+                    {t('sessions.host', { name: s.creator_name })}
+                  </p>
+
+                  <p className="muted small">
+                    {t('sessions.started', {
+                      date: new Date(s.created_at).toLocaleDateString(undefined, {
+                        dateStyle: 'medium',
+                      }),
+                    })}
+                  </p>
+                </div>
               </div>
-
-              <p className="session-author">{s.author}</p>
-
-              <p className="muted small">
-                {t('sessions.chapters_count', { count: s.chapter_count })}
-              </p>
-
-              <p className="muted small">
-                {t('sessions.host', { name: s.creator_name })}
-              </p>
-
-              <p className="muted small">
-                {t('sessions.started', { 
-                  date: new Date(s.created_at).toLocaleDateString(undefined, {
-                    dateStyle: 'medium',
-                  })
-                })}
-              </p>
             </Link>
           </li>
         ))}

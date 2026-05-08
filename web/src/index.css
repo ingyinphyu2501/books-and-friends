@@ -638,36 +638,75 @@ a {
 }
 
 .fieldset {
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   padding: 1rem;
-  margin: 0;
+  margin: 1.5rem 0;
 }
 
 .fieldset legend {
-  padding: 0 0.35rem;
-  font-weight: 700;
-  font-family: 'Fraunces', Georgia, serif;
+  padding: 0 0.5rem;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
+/* Search Results */
+.search-results-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.search-result-item {
+  width: 100%;
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background-color: var(--bg-deep);
+}
+
+.search-result-cover {
+  width: 40px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
+.search-result-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Chapter Editor */
 .chapter-editor {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin: 0.75rem 0;
+  margin: 1rem 0;
 }
 
 .chapter-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.5rem;
+  display: flex;
   align-items: center;
+  gap: 0.75rem;
 }
 
 .chapter-index {
+  width: 1.5rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
 }
 
 .session-hero-title {
@@ -870,6 +909,70 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+}
+
+/* Spoilers */
+.spoiler-badge {
+  background-color: var(--line);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+}
+
+.post-spoiler-hidden .post-content-wrap,
+.post-spoiler-hidden .reaction-bar {
+  filter: blur(12px);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.4;
+}
+
+.post-spoiler-hidden {
+  position: relative;
+  overflow: hidden;
+}
+
+.spoiler-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(2px);
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.spoiler-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.select-small {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  width: auto;
 }
 
 /* Avatar styles */

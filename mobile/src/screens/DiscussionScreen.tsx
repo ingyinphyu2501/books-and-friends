@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Switch, ScrollView } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useRoute } from '@react-navigation/native'
 
-type PostRow = { id: string; user_id: string; body: string; created_at: string; edited_at: string | null }
+type PostRow = { 
+  id: string; 
+  user_id: string; 
+  body: string; 
+  created_at: string; 
+  edited_at: string | null;
+  is_spoiler: boolean;
+  spoiler_chapter_id: string | null;
+}
 type ReactionRow = { id: string; post_id: string; user_id: string; emoji: string }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😄', '🤔', '🎉', '📚', '🔥', '✨']
@@ -18,6 +26,12 @@ export function DiscussionScreen() {
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [reactions, setReactions] = useState<ReactionRow[]>([])
   const [newPostBody, setNewPostBody] = useState('')
+  const [isSpoiler, setIsSpoiler] = useState(false)
+  const [spoilerChapterId, setSpoilerChapterId] = useState<string | null>(null)
+  const [chapters, setChapters] = useState<{ id: string; label: string }[]>([])
+  const [revealedPosts, setRevealedPosts] = useState<Set<string>>(new Set())
+  const [myProgress, setMyProgress] = useState<Set<string>>(new Set())
+
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const flatListRef = useRef<FlatList>(null)
@@ -27,7 +41,17 @@ export function DiscussionScreen() {
     setLoading(true)
     try {
       const { data: p } = await supabase.from('discussion_posts').select('*').eq('session_id', sessionId).order('created_at', { ascending: true })
-      setPosts(p ?? [])
+      setPosts((p as any) ?? [])
+
+      // Load my progress for spoiler logic
+      if (user) {
+        const { data: prog } = await supabase.from('member_chapter_progress').select('chapter_id').eq('session_id', sessionId).eq('user_id', user.id)
+        setMyProgress(new Set(prog?.map(pg => pg.chapter_id)))
+
+        // Fetch chapters for the dropdown
+        const { data: chs } = await supabase.from('session_chapters').select('id, label').eq('session_id', sessionId).order('sort_order', { ascending: true })
+        setChapters(chs ?? [])
+      }
 
       if (p && p.length > 0) {
         const userIds = [...new Set(p.map(post => post.user_id))]
@@ -56,10 +80,22 @@ export function DiscussionScreen() {
     if (!body || !user) return
     setBusy(true)
     try {
-      const { data, error } = await supabase.from('discussion_posts').insert({ session_id: sessionId, user_id: user.id, body }).select().single()
+      const { data, error } = await supabase
+        .from('discussion_posts')
+        .insert({ 
+          session_id: sessionId, 
+          user_id: user.id, 
+          body,
+          is_spoiler: isSpoiler,
+          spoiler_chapter_id: isSpoiler ? spoilerChapterId : null
+        } as any)
+        .select()
+        .single()
       if (error) throw error
-      setPosts(prev => [...prev, data])
+      setPosts(prev => [...prev, data as any])
       setNewPostBody('')
+      setIsSpoiler(false)
+      setSpoilerChapterId(null)
       setTimeout(() => flatListRef.current?.scrollToEnd(), 100)
     } catch (err) {
       Alert.alert('Error', 'Could not post message')
@@ -76,7 +112,8 @@ export function DiscussionScreen() {
         await supabase.from('post_reactions').delete().eq('id', mine.id)
         setReactions(prev => prev.filter(r => r.id !== mine.id))
       } else {
-        const { data } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, emoji }).select().single()
+        const { data, error } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, emoji }).select().single()
+        if (error) throw error
         setReactions(prev => [...prev, data])
       }
     } catch (err) {
@@ -94,13 +131,35 @@ export function DiscussionScreen() {
       grouped.set(r.emoji, cur)
     })
 
+    const isOwn = item.user_id === user?.id
+    const isHiddenSpoiler = 
+      item.is_spoiler && 
+      !isOwn && 
+      !revealedPosts.has(item.id) && 
+      (!item.spoiler_chapter_id || !myProgress.has(item.spoiler_chapter_id))
+
     return (
       <View style={styles.post}>
         <View style={styles.postHeader}>
           <Text style={styles.postAuthor}>{profiles[item.user_id] ?? 'Reader'}</Text>
           <Text style={styles.postDate}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          {item.is_spoiler && <View style={styles.spoilerBadge}><Text style={styles.spoilerBadgeText}>SPOILER</Text></View>}
         </View>
-        <Text style={styles.postBody}>{item.body}</Text>
+
+        {isHiddenSpoiler ? (
+          <View style={styles.spoilerOverlay}>
+            <Text style={styles.spoilerWarning}>This post contains spoilers!</Text>
+            <TouchableOpacity 
+              style={styles.revealButton} 
+              onPress={() => setRevealedPosts(prev => new Set(prev).add(item.id))}
+            >
+              <Text style={styles.revealButtonText}>Reveal</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={styles.postBody}>{item.body}</Text>
+        )}
+
         <View style={styles.reactionContainer}>
           {[...grouped.entries()].map(([emoji, info]) => (
             <TouchableOpacity 
@@ -141,13 +200,47 @@ export function DiscussionScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>No messages yet. Be the first to start the discussion!</Text>}
       />
       <View style={styles.composer}>
-        <TextInput
-          style={styles.input}
-          value={newPostBody}
-          onChangeText={setNewPostBody}
-          placeholder="Write a message..."
-          multiline
-        />
+        <View style={{ flex: 1 }}>
+          <TextInput
+            style={styles.input}
+            value={newPostBody}
+            onChangeText={setNewPostBody}
+            placeholder="Write a message..."
+            multiline
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 14, color: '#5c5348' }}>Mark as spoiler</Text>
+              <Switch
+                value={isSpoiler}
+                onValueChange={setIsSpoiler}
+                trackColor={{ false: '#d7cbb9', true: '#2f6f5e' }}
+              />
+            </View>
+
+            {isSpoiler && chapters.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40 }}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {chapters.map(ch => (
+                    <TouchableOpacity
+                      key={ch.id}
+                      onPress={() => setSpoilerChapterId(spoilerChapterId === ch.id ? null : ch.id)}
+                      style={[
+                        styles.chapterChip,
+                        spoilerChapterId === ch.id && styles.chapterChipActive
+                      ]}
+                    >
+                      <Text style={[
+                        styles.chapterChipText,
+                        spoilerChapterId === ch.id && styles.chapterChipTextActive
+                      ]}>{ch.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
         <TouchableOpacity 
           style={[styles.sendButton, (!newPostBody.trim() || busy) && styles.sendButtonDisabled]} 
           onPress={submitPost}
@@ -182,4 +275,14 @@ const styles = StyleSheet.create({
   sendButtonDisabled: { opacity: 0.5 },
   sendButtonText: { color: '#fff', fontWeight: '700' },
   emptyText: { textAlign: 'center', marginTop: 40, color: '#5c5348', fontSize: 16, paddingHorizontal: 40 },
+  spoilerBadge: { backgroundColor: '#d7cbb9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
+  spoilerBadgeText: { fontSize: 10, fontWeight: '800', color: '#1f1b16' },
+  spoilerOverlay: { padding: 12, backgroundColor: '#ebe2d6', borderRadius: 8, alignItems: 'center', gap: 8, marginVertical: 4 },
+  spoilerWarning: { fontSize: 14, color: '#a42033', fontWeight: '600' },
+  revealButton: { backgroundColor: '#2f6f5e', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  revealButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  chapterChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, backgroundColor: '#fffdf8', borderWidth: 1, borderColor: '#d7cbb9' },
+  chapterChipActive: { backgroundColor: '#2f6f5e', borderColor: '#2f6f5e' },
+  chapterChipText: { fontSize: 12, color: '#5c5348' },
+  chapterChipTextActive: { color: '#fff', fontWeight: '600' },
 })

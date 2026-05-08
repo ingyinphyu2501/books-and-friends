@@ -4,7 +4,22 @@
 
 ---
 
-## 🏗️ Project Architecture
+## � Version 2 Features (New!)
+
+### **1. Book Metadata Integration**
+- **Smart Search**: When creating a session, search for books via the **Google Books API**.
+- **Auto-Populate**: Automatically fetch book title, author, and high-quality cover images.
+- **External Covers**: Supports external image URLs for lightweight book cover management.
+
+### **2. Spoiler Alert Protection**
+- **Smart Blur**: Discussion posts can be marked as spoilers.
+- **Context-Aware Unveiling**: Spoilers are automatically blurred for users who haven't reached the specific chapter yet.
+- **Manual Reveal**: Users can choose to "Reveal" a blurred post if they want to see it regardless.
+- **Safe Authorship**: You always see your own posts unblurred.
+
+---
+
+## �🏗️ Project Architecture
 
 The project is structured as a monorepo containing three main components:
 

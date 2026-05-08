@@ -1,13 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, FlatList } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useRoute, useNavigation } from '@react-navigation/native'
 
-type SessionRow = { id: string; creator_id: string; title: string; author: string; created_at: string }
+type SessionRow = { 
+  id: string; 
+  creator_id: string; 
+  title: string; 
+  author: string; 
+  created_at: string;
+  cover_url: string | null;
+  creator_name?: string;
+}
 type ChapterRow = { id: string; sort_order: number; label: string }
 type MemberRow = { user_id: string; joined_at: string }
-type PostRow = { id: string; user_id: string; body: string; created_at: string; edited_at: string | null }
 
 export function SessionDetailScreen() {
   const route = useRoute<any>()
@@ -28,8 +35,19 @@ export function SessionDetailScreen() {
     if (!user || !sessionId) return
     setLoading(true)
     try {
-      const { data: s } = await supabase.from('reading_sessions').select('*').eq('id', sessionId).single()
-      setSession(s)
+      const { data: s } = await supabase
+        .from('reading_sessions')
+        .select('*, profiles(display_name)')
+        .eq('id', sessionId)
+        .single()
+      
+      const sessionData = s as any
+      if (sessionData) {
+        setSession({
+          ...sessionData,
+          creator_name: sessionData.profiles?.display_name ?? 'Reader'
+        })
+      }
 
       const { data: ch } = await supabase.from('session_chapters').select('*').eq('session_id', sessionId).order('sort_order', { ascending: true })
       setChapters(ch ?? [])
@@ -62,7 +80,8 @@ export function SessionDetailScreen() {
   const joinSession = async () => {
     setBusy(true)
     try {
-      await supabase.from('session_members').insert({ session_id: sessionId, user_id: user?.id })
+      if (!user?.id) throw new Error('User not authenticated')
+      await supabase.from('session_members').insert({ session_id: sessionId, user_id: user.id })
       await loadData()
     } catch (err) {
       Alert.alert('Error', 'Could not join session')
@@ -75,11 +94,12 @@ export function SessionDetailScreen() {
     const done = progress.has(chapterId)
     setBusy(true)
     try {
+      if (!user?.id) return
       if (done) {
-        await supabase.from('member_chapter_progress').delete().eq('session_id', sessionId).eq('user_id', user?.id).eq('chapter_id', chapterId)
+        await supabase.from('member_chapter_progress').delete().eq('session_id', sessionId).eq('user_id', user.id).eq('chapter_id', chapterId)
         setProgress(prev => { const n = new Set(prev); n.delete(chapterId); return n })
       } else {
-        await supabase.from('member_chapter_progress').insert({ session_id: sessionId, user_id: user?.id, chapter_id: chapterId })
+        await supabase.from('member_chapter_progress').insert({ session_id: sessionId, user_id: user.id, chapter_id: chapterId } as any)
         setProgress(prev => { const n = new Set(prev); n.add(chapterId); return n })
       }
     } catch (err) {
@@ -97,9 +117,17 @@ export function SessionDetailScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.card}>
-        <Text style={styles.title}>{session.title}</Text>
-        <Text style={styles.author}>{session.author}</Text>
-        <Text style={styles.muted}>Started {new Date(session.created_at).toLocaleDateString()}</Text>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          {session.cover_url && (
+            <Image source={{ uri: session.cover_url }} style={styles.detailCover} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>{session.title}</Text>
+            <Text style={styles.author}>{session.author}</Text>
+            <Text style={styles.muted}>Host: {session.creator_name}</Text>
+            <Text style={styles.muted}>Started {new Date(session.created_at).toLocaleDateString()}</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -149,6 +177,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fffdf8', padding: 20, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: '#d7cbb9' },
   title: { fontSize: 24, fontWeight: '700', color: '#1f1b16', marginBottom: 4 },
   author: { fontSize: 18, color: '#5c5348', marginBottom: 8 },
+  detailCover: { width: 80, height: 120, borderRadius: 8, objectFit: 'cover' },
   muted: { fontSize: 14, color: '#5c5348' },
   section: { backgroundColor: '#fffdf8', padding: 16, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: '#d7cbb9' },
   sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1f1b16', marginBottom: 12 },

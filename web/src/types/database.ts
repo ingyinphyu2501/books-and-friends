@@ -41,6 +41,8 @@ export type Database = {
           author: string
           created_at: string
           archived_at: string | null
+          cover_url: string | null
+          external_id: string | null
         }
         Insert: {
           id?: string
@@ -49,6 +51,8 @@ export type Database = {
           author: string
           created_at?: string
           archived_at?: string | null
+          cover_url?: string | null
+          external_id?: string | null
         }
         Update: {
           id?: string
@@ -57,6 +61,8 @@ export type Database = {
           author?: string
           created_at?: string
           archived_at?: string | null
+          cover_url?: string | null
+          external_id?: string | null
         }
         Relationships: []
       }
@@ -128,6 +134,8 @@ export type Database = {
           body: string
           created_at: string
           edited_at: string | null
+          is_spoiler: boolean
+          spoiler_chapter_id: string | null
         }
         Insert: {
           id?: string
@@ -136,6 +144,8 @@ export type Database = {
           body: string
           created_at?: string
           edited_at?: string | null
+          is_spoiler?: boolean
+          spoiler_chapter_id?: string | null
         }
         Update: {
           id?: string
@@ -144,6 +154,8 @@ export type Database = {
           body?: string
           created_at?: string
           edited_at?: string | null
+          is_spoiler?: boolean
+          spoiler_chapter_id?: string | null
         }
         Relationships: []
       }

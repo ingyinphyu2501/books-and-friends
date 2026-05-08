@@ -7,6 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 type SessionRow = {
   id: string
   creator_id: string
+  creator_name?: string
   title: string
   author: string
   created_at: string
@@ -22,6 +23,8 @@ type PostRow = {
   body: string
   created_at: string
   edited_at: string | null
+  is_spoiler: boolean
+  spoiler_chapter_id: string | null
 }
 
 type ReactionRow = {
@@ -72,10 +75,17 @@ export function SessionPage() {
   const prevSessionRef = useRef<string>('')
   const [hasMorePosts, setHasMorePosts] = useState(false)
   const [reactions, setReactions] = useState<ReactionRow[]>([])
-  const [postBody, setPostBody] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Discussion / Spoiler state
+  const [postBody, setPostBody] = useState('')
+  const [isSpoiler, setIsSpoiler] = useState(false)
+  const [spoilerChapterId, setSpoilerChapterId] = useState<string | null>(null)
+  const [revealedPosts, setRevealedPosts] = useState<Set<string>>(new Set())
+
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
 
@@ -98,7 +108,7 @@ export function SessionPage() {
       const take = limit + 1
       const { data, error: psErr } = await supabase
         .from('discussion_posts')
-        .select('id, user_id, body, created_at, edited_at')
+        .select('id, user_id, body, created_at, edited_at, is_spoiler, spoiler_chapter_id')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
         .limit(take)
@@ -124,11 +134,19 @@ export function SessionPage() {
     try {
       const { data: s, error: sErr } = await supabase
         .from('reading_sessions')
-        .select('id, creator_id, title, author, created_at')
+        .select('*, profiles(display_name)')
         .eq('id', sessionId)
         .maybeSingle()
       if (sErr) throw sErr
-      setSession((s as SessionRow) ?? null)
+      const sessionData = s as any
+      setSession(
+        sessionData
+          ? {
+              ...sessionData,
+              creator_name: sessionData.profiles?.display_name ?? 'Reader',
+            }
+          : null,
+      )
 
       const { data: ch, error: chErr } = await supabase
         .from('session_chapters')
@@ -310,13 +328,21 @@ export function SessionPage() {
     try {
       const { data, error: insErr } = await supabase
         .from('discussion_posts')
-        .insert({ session_id: sessionId, user_id: user.id, body })
-        .select('id, user_id, body, created_at, edited_at')
+        .insert({
+          session_id: sessionId,
+          user_id: user.id,
+          body,
+          is_spoiler: isSpoiler,
+          spoiler_chapter_id: isSpoiler ? spoilerChapterId : null,
+        })
+        .select('id, user_id, body, created_at, edited_at, is_spoiler, spoiler_chapter_id')
         .single()
       if (insErr) throw insErr
       const row = data as PostRow
       setPosts((prev) => [...prev, row])
       setPostBody('')
+      setIsSpoiler(false)
+      setSpoilerChapterId(null)
       await loadProfiles([...posts.map((p) => p.user_id), user.id])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not post')
@@ -338,7 +364,7 @@ export function SessionPage() {
         .update({ body, edited_at: now })
         .eq('id', postId)
         .eq('user_id', user.id)
-        .select('id, user_id, body, created_at, edited_at')
+        .select('id, user_id, body, created_at, edited_at, is_spoiler, spoiler_chapter_id')
         .single()
       if (uErr) throw uErr
       const row = data as PostRow
@@ -628,8 +654,17 @@ export function SessionPage() {
                 }
                 const isOwn = p.user_id === user.id
                 const isEditing = editingPostId === p.id
+
+                // Spoiler Logic
+                const myDone = progressByUser.get(user.id) ?? new Set()
+                const isHiddenSpoiler =
+                  p.is_spoiler &&
+                  !isOwn &&
+                  !revealedPosts.has(p.id) &&
+                  (!p.spoiler_chapter_id || !myDone.has(p.spoiler_chapter_id))
+
                 return (
-                  <li key={p.id} className="post">
+                  <li key={p.id} className={isHiddenSpoiler ? 'post post-spoiler-hidden' : 'post'}>
                     <header className="post-meta">
                       <strong>{profiles[p.user_id] ?? 'Reader'}</strong>
                       <time dateTime={p.created_at}>
@@ -639,36 +674,58 @@ export function SessionPage() {
                         })}
                       </time>
                       {p.edited_at ? <span className="muted small">· {t('session_detail.edited')}</span> : null}
+                      {p.is_spoiler && <span className="spoiler-badge">SPOILER</span>}
                     </header>
-                    {isEditing ? (
-                      <div className="post-edit">
-                        <textarea
-                          className="input textarea"
-                          rows={3}
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          aria-label="Edit message"
-                        />
-                        <div className="post-edit-actions">
-                          <button type="button" className="btn btn-primary btn-small" disabled={busy} onClick={() => void saveEdit(p.id)}>
-                            {t('common.save')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-small"
-                            disabled={busy}
-                            onClick={() => {
-                              setEditingPostId(null)
-                              setEditDraft('')
-                            }}
-                          >
-                            {t('common.cancel')}
-                          </button>
-                        </div>
+
+                    {isHiddenSpoiler ? (
+                      <div className="spoiler-overlay">
+                        <p className="muted small">{t('session_detail.spoiler_warning')}</p>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-small"
+                          onClick={() => setRevealedPosts((prev) => new Set(prev).add(p.id))}
+                        >
+                          {t('session_detail.reveal')}
+                        </button>
                       </div>
-                    ) : (
-                      <p className="post-body">{p.body}</p>
-                    )}
+                    ) : null}
+
+                    <div className="post-content-wrap">
+                      {isEditing ? (
+                        <div className="post-edit">
+                          <textarea
+                            className="input textarea"
+                            rows={3}
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            aria-label="Edit message"
+                          />
+                          <div className="post-edit-actions">
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-small"
+                              disabled={busy}
+                              onClick={() => void saveEdit(p.id)}
+                            >
+                              {t('common.save')}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-small"
+                              disabled={busy}
+                              onClick={() => {
+                                setEditingPostId(null)
+                                setEditDraft('')
+                              }}
+                            >
+                              {t('common.cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="post-body">{p.body}</p>
+                      )}
+                    </div>
                     {isOwn && !isEditing ? (
                       <div className="post-own-actions">
                         <button
@@ -747,9 +804,36 @@ export function SessionPage() {
                   placeholder={t('session_detail.post_placeholder')}
                 />
               </label>
-              <button type="submit" className="btn btn-primary" disabled={busy || !postBody.trim()}>
-                {t('session_detail.post_button')}
-              </button>
+
+              <div className="composer-actions">
+                <label className="spoiler-toggle">
+                  <input
+                    type="checkbox"
+                    checked={isSpoiler}
+                    onChange={(e) => setIsSpoiler(e.target.checked)}
+                  />
+                  <span>{t('session_detail.mark_as_spoiler')}</span>
+                </label>
+
+                {isSpoiler && (
+                  <select
+                    className="input select-small"
+                    value={spoilerChapterId || ''}
+                    onChange={(e) => setSpoilerChapterId(e.target.value || null)}
+                  >
+                    <option value="">{t('session_detail.select_chapter')}</option>
+                    {chapters.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        {ch.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button type="submit" className="btn btn-primary" disabled={busy || !postBody.trim()}>
+                  {t('session_detail.post_button')}
+                </button>
+              </div>
             </form>
           </section>
         </>

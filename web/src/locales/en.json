@@ -81,6 +81,10 @@
     "flat_thread_hint": "Single flat thread—oldest at the top, newest at the bottom.",
     "post_placeholder": "Share a thought for the group...",
     "post_button": "Post",
+    "mark_as_spoiler": "Mark as Spoiler",
+    "select_chapter": "Select chapter (optional)",
+    "spoiler_warning": "This post contains spoilers!",
+    "reveal": "Reveal",
     "edited": "edited",
     "delete_confirm": "Delete this post? This cannot be undone.",
     "leave_confirm": "Leave this session? You can join again later."
@@ -93,6 +97,8 @@
     "chapters_legend": "Chapters",
     "chapters_hint": "Enter each chapter as you want it shown—order matters.",
     "add_row": "+ Add chapter row",
-    "create_button": "Create session"
+    "create_button": "Create session",
+    "search_book": "Search for a book",
+    "search_placeholder": "Enter title or author..."
   }
 }

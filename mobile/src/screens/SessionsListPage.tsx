@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigation } from '@react-navigation/native'
@@ -10,6 +10,8 @@ type SessionRow = {
   author: string
   created_at: string
   chapter_count: number
+  creator_name: string
+  cover_url: string | null
 }
 
 type ListMode = 'all' | 'mine'
@@ -56,7 +58,7 @@ export function SessionsListPage() {
 
       let query = supabase
         .from('reading_sessions')
-        .select('id, title, author, created_at')
+        .select('id, title, author, created_at, cover_url, profiles(display_name)')
         .order('created_at', { ascending: false })
         .range(from, to)
 
@@ -75,15 +77,21 @@ export function SessionsListPage() {
         query = query.in('id', ids)
       }
 
-      const { data: sessions, error } = await query
+      const { data, error } = await query
       if (error) throw error
+      const sessions = data as any[]
 
       const sessionIds = (sessions ?? []).map(s => s.id)
       const chapterMap = await fetchChapterCounts(sessionIds)
 
       const batch: SessionRow[] = (sessions ?? []).map(s => ({
-        ...s,
+        id: s.id,
+        title: s.title,
+        author: s.author,
+        created_at: s.created_at,
         chapter_count: chapterMap[s.id] ?? 0,
+        creator_name: s.profiles?.display_name ?? 'Reader',
+        cover_url: s.cover_url,
       }))
 
       if (isInitial) {
@@ -117,15 +125,23 @@ export function SessionsListPage() {
       style={styles.card}
       onPress={() => navigation.navigate('SessionDetail', { id: item.id })}
     >
-      <View style={styles.cardHeader}>
-        <Text style={styles.sessionTitle}>{item.title}</Text>
-        <View style={styles.pill}><Text style={styles.pillText}>Public</Text></View>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {item.cover_url && (
+          <Image source={{ uri: item.cover_url }} style={styles.cardCover} />
+        )}
+        <View style={{ flex: 1 }}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.sessionTitle}>{item.title}</Text>
+            <View style={styles.pill}><Text style={styles.pillText}>Public</Text></View>
+          </View>
+          <Text style={styles.author}>{item.author}</Text>
+          <Text style={styles.muted}>{item.chapter_count} chapters</Text>
+          <Text style={styles.muted}>Host: {item.creator_name}</Text>
+          <Text style={styles.muted}>
+            Started {new Date(item.created_at).toLocaleDateString()}
+          </Text>
+        </View>
       </View>
-      <Text style={styles.author}>{item.author}</Text>
-      <Text style={styles.muted}>{item.chapter_count} chapters</Text>
-      <Text style={styles.muted}>
-        Started {new Date(item.created_at).toLocaleDateString()}
-      </Text>
     </TouchableOpacity>
   )
 
@@ -192,6 +208,7 @@ const styles = StyleSheet.create({
   pill: { backgroundColor: '#e3f1ec', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 10, fontWeight: '700', color: '#0f3d32' },
   author: { fontSize: 14, color: '#5c5348', marginVertical: 4 },
+  cardCover: { width: 60, height: 90, borderRadius: 4, objectFit: 'cover' },
   muted: { fontSize: 12, color: '#5c5348' },
   emptyState: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#5c5348', fontSize: 16 },

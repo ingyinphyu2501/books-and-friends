@@ -1,16 +1,69 @@
-import React, { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Image, FlatList } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigation } from '@react-navigation/native'
+
+interface GoogleBookItem {
+  id: string
+  volumeInfo: {
+    title: string
+    authors?: string[]
+    imageLinks?: {
+      thumbnail: string
+    }
+  }
+}
 
 export function CreateSessionScreen() {
   const { user } = useAuth()
   const navigation = useNavigation<any>()
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [externalId, setExternalId] = useState<string | null>(null)
   const [chapterLines, setChapterLines] = useState<string[]>(['', ''])
   const [busy, setBusy] = useState(false)
+
+  // Book Search State
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<GoogleBookItem[]>([])
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim().length > 2) {
+        searchBooks(query)
+      } else {
+        setResults([])
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  async function searchBooks(q: string) {
+    setSearching(true)
+    try {
+      // Note: In a real mobile app, you might want to use a proxy or secure your API keys differently
+      const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`
+      const res = await fetch(url)
+      const data = await res.json()
+      setResults(data.items || [])
+    } catch (err) {
+      console.error('Book search failed', err)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function selectBook(book: GoogleBookItem) {
+    setTitle(book.volumeInfo.title)
+    setAuthor(book.volumeInfo.authors?.join(', ') || '')
+    setCoverUrl(book.volumeInfo.imageLinks?.thumbnail || null)
+    setExternalId(book.id)
+    setResults([])
+    setQuery('')
+  }
 
   const addChapterRow = () => setChapterLines(prev => [...prev, ''])
   const updateChapter = (i: number, val: string) => setChapterLines(prev => prev.map((c, idx) => idx === i ? val : c))
@@ -33,7 +86,13 @@ export function CreateSessionScreen() {
     try {
       const { data: session, error: sErr } = await supabase
         .from('reading_sessions')
-        .insert({ creator_id: user.id, title: title.trim(), author: author.trim() })
+        .insert({ 
+          creator_id: user.id, 
+          title: title.trim(), 
+          author: author.trim(),
+          cover_url: coverUrl,
+          external_id: externalId
+        } as any)
         .select('id')
         .single()
       
@@ -59,6 +118,40 @@ export function CreateSessionScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.card}>
+        <Text style={styles.label}>Search for a book</Text>
+        <TextInput
+          style={styles.input}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Enter title or author..."
+        />
+        {searching && <ActivityIndicator size="small" color="#2f6f5e" style={{ marginBottom: 10 }} />}
+        
+        {results.length > 0 && (
+          <View style={styles.resultsContainer}>
+            {results.map(book => (
+              <TouchableOpacity key={book.id} style={styles.resultItem} onPress={() => selectBook(book)}>
+                {book.volumeInfo.imageLinks?.thumbnail && (
+                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail }} style={styles.resultCover} />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.resultTitle} numberOfLines={1}>{book.volumeInfo.title}</Text>
+                  <Text style={styles.resultAuthor} numberOfLines={1}>{book.volumeInfo.authors?.join(', ')}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {coverUrl && (
+          <View style={styles.coverPreviewContainer}>
+            <Image source={{ uri: coverUrl }} style={styles.coverPreview} />
+            <TouchableOpacity onPress={() => setCoverUrl(null)}>
+              <Text style={{ color: '#a42033', marginLeft: 10 }}>Remove Cover</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <Text style={styles.label}>Book Title</Text>
         <TextInput 
           style={styles.input} 
@@ -133,4 +226,11 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: '#2f6f5e', padding: 16, borderRadius: 999, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   btnDisabled: { opacity: 0.5 },
+  resultsContainer: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#ebe2d6' },
+  resultItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+  resultCover: { width: 40, height: 60, borderRadius: 4 },
+  resultTitle: { fontWeight: '600', color: '#1f1b16' },
+  resultAuthor: { fontSize: 12, color: '#5c5348' },
+  coverPreviewContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  coverPreview: { width: 60, height: 90, borderRadius: 4 },
 })

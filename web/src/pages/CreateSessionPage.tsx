@@ -1,8 +1,19 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/useAuth'
 import { useLanguage } from '../contexts/LanguageContext'
+
+interface GoogleBookItem {
+  id: string
+  volumeInfo: {
+    title: string
+    authors?: string[]
+    imageLinks?: {
+      thumbnail: string
+    }
+  }
+}
 
 function normalizeChapters(raw: string[]): string[] {
   return raw.map((c) => c.trim()).filter((c) => c.length > 0)
@@ -14,9 +25,53 @@ export function CreateSessionPage() {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [externalId, setExternalId] = useState<string | null>(null)
   const [chapterLines, setChapterLines] = useState<string[]>(['', ''])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Book Search State
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<GoogleBookItem[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim().length > 2) {
+        searchBooks(query)
+      } else {
+        setResults([])
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  async function searchBooks(q: string) {
+    setSearching(true)
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY
+      const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5${apiKey ? `&key=${apiKey}` : ''}`
+      const res = await fetch(url)
+      const data = await res.json()
+      setResults(data.items || [])
+      setShowResults(true)
+    } catch (err) {
+      console.error('Book search failed', err)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function selectBook(book: GoogleBookItem) {
+    setTitle(book.volumeInfo.title)
+    setAuthor(book.volumeInfo.authors?.join(', ') || '')
+    setCoverUrl(book.volumeInfo.imageLinks?.thumbnail || null)
+    setExternalId(book.id)
+    setShowResults(false)
+    setQuery('')
+  }
 
   function addChapterRow() {
     setChapterLines((prev) => [...prev, ''])
@@ -51,6 +106,8 @@ export function CreateSessionPage() {
           creator_id: user.id,
           title: title.trim(),
           author: author.trim(),
+          cover_url: coverUrl,
+          external_id: externalId,
         })
         .select('id')
         .single()
@@ -86,7 +143,47 @@ export function CreateSessionPage() {
         </Link>
       </header>
 
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <label className="field">
+          <span>{t('create_session.search_book')}</span>
+          <input
+            className="input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('create_session.search_placeholder')}
+          />
+          {searching && <p className="muted small">{t('common.loading')}</p>}
+        </label>
+
+        {showResults && results.length > 0 && (
+          <ul className="search-results-list">
+            {results.map((book) => (
+              <li key={book.id}>
+                <button type="button" className="search-result-item" onClick={() => selectBook(book)}>
+                  {book.volumeInfo.imageLinks?.thumbnail && (
+                    <img src={book.volumeInfo.imageLinks.thumbnail} alt="" className="search-result-cover" />
+                  )}
+                  <div className="search-result-info">
+                    <strong>{book.volumeInfo.title}</strong>
+                    <p className="muted small">{book.volumeInfo.authors?.join(', ')}</p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <form className="card stack-form" onSubmit={(e) => void onSubmit(e)}>
+        {coverUrl && (
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+            <img src={coverUrl} alt="Cover" style={{ width: 60, borderRadius: 4 }} />
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setCoverUrl(null)}>
+              {t('common.remove')}
+            </button>
+          </div>
+        )}
+
         <label className="field">
           <span>{t('create_session.book_title')}</span>
           <input
