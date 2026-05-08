@@ -1,0 +1,98 @@
+{
+  "common": {
+    "app_name": "Books & Friends",
+    "loading": "Loading...",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "remove": "Remove",
+    "back": "Back",
+    "error": "Error",
+    "success": "Success",
+    "join": "Join",
+    "joining": "Joining...",
+    "leave": "Leave",
+    "sessions": "Sessions"
+  },
+  "nav": {
+    "browse": "Browse",
+    "my_profile": "My Profile",
+    "sign_in": "Sign In",
+    "sign_out": "Sign Out"
+  },
+  "landing": {
+    "title": "Read together, even when apart.",
+    "subtitle": "Join reading sessions, track your progress chapter by chapter, and discuss with friends.",
+    "get_started": "Get Started",
+    "browse_sessions": "Browse Sessions",
+    "feature_chapters_title": "Chapters, not pages",
+    "feature_chapters_desc": "Progress is chapter checkboxes. We show a calm bar: completed vs total.",
+    "feature_thread_title": "One thread",
+    "feature_thread_desc": "No nested replies—just a single timeline for the whole read.",
+    "feature_reactions_title": "Thoughtful reactions",
+    "feature_reactions_desc": "Many emoji per post, one of each—tap again to remove (reaction toggle)."
+  },
+  "auth": {
+    "sign_in_title": "Welcome Back",
+    "sign_up_title": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "display_name": "Display Name",
+    "switch_to_sign_up": "Don't have an account? Sign Up",
+    "switch_to_sign_in": "Already have an account? Sign In",
+    "sign_in_button": "Sign In",
+    "sign_up_button": "Sign Up"
+  },
+  "profile": {
+    "title": "Your profile",
+    "subtitle": "Shown to others in sessions and discussion.",
+    "bio": "Bio (optional)",
+    "bio_placeholder": "A line or two about what you like to read...",
+    "upload_avatar": "Upload Avatar",
+    "remove_avatar": "Remove Avatar",
+    "save_profile": "Save profile",
+    "saved": "Saved."
+  },
+  "sessions": {
+    "title": "Reading sessions",
+    "subtitle": "Public reads. Browse everything or filter to sessions you’re in.",
+    "new_session": "New session",
+    "all_sessions": "All sessions",
+    "my_sessions": "My sessions",
+    "no_sessions": "No sessions yet",
+    "join_or_create": "Join a read or create your own.",
+    "be_first": "Be the first to start a read.",
+    "create_session": "Create session",
+    "chapters_count": "{{count}} chapters",
+    "host": "Host: {{name}}",
+    "started": "Started {{date}}"
+  },
+  "session_detail": {
+    "chapters": "Chapters",
+    "members": "Members ({{count}})",
+    "group_average": "Group average completion",
+    "progress_across": "{{pct}}% across {{count}} readers",
+    "join_to_track": "Join to track your chapters and join the thread.",
+    "your_progress": "Your progress",
+    "chapters_complete": "{{done}} of {{total}} chapters complete",
+    "discussion": "Discussion",
+    "flat_thread_hint": "Single flat thread—oldest at the top, newest at the bottom.",
+    "post_placeholder": "Share a thought for the group...",
+    "post_button": "Post",
+    "edited": "edited",
+    "delete_confirm": "Delete this post? This cannot be undone.",
+    "leave_confirm": "Leave this session? You can join again later."
+  },
+  "create_session": {
+    "title": "New reading session",
+    "subtitle": "One book, a plain list of chapter names, everyone welcome.",
+    "book_title": "Book title",
+    "author": "Author",
+    "chapters_legend": "Chapters",
+    "chapters_hint": "Enter each chapter as you want it shown—order matters.",
+    "add_row": "+ Add chapter row",
+    "create_button": "Create session"
+  }
+}
