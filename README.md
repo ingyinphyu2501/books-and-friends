@@ -4,7 +4,7 @@
 
 ---
 
-## � Version 2 Features (New!)
+## Version 2 Features (New!)
 
 ### **1. Book Metadata Integration**
 - **Smart Search**: When creating a session, search for books via the **Google Books API**.
@@ -19,7 +19,7 @@
 
 ---
 
-## �🏗️ Project Architecture
+## Project Architecture
 
 The project is structured as a monorepo containing three main components:
 
@@ -29,7 +29,7 @@ The project is structured as a monorepo containing three main components:
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 ### **1. Dual Language Support**
 Full support for **English (EN)** and **Burmese (မြန်မာ)** across the entire web application. Users can toggle languages in the navigation bar, and the setting persists across sessions.
@@ -49,7 +49,7 @@ Full support for **English (EN)** and **Burmese (မြန်မာ)** across th
 
 ---
 
-## 💻 Source Code Explanation
+## Source Code Explanation
 
 ### **Web Application (`/web`)**
 Built with **React 18** and **TypeScript**.
@@ -71,7 +71,7 @@ Uses **PostgreSQL** with Row Level Security.
 
 ---
 
-## 🛠️ Setup & Development
+## Setup & Development
 
 ### **Supabase Setup**
 1. Create a new project on [Supabase](https://supabase.com).
